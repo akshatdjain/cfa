@@ -13,14 +13,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+app.set('trust proxy', 1); // Crucial for accurate IP rate limiting behind Vercel
 const PORT = process.env.PORT || 3001;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
 if (!OPENROUTER_API_KEY) {
-  console.error('\n❌ OPENROUTER_API_KEY not found in .env file!');
-  console.error('   Create a .env file in the project root with:');
-  console.error('   OPENROUTER_API_KEY=sk-or-your-key-here\n');
-  process.exit(1);
+  console.warn('\n⚠️ OPENROUTER_API_KEY not found in environment variables! API calls will fail.');
 }
 
 // Security middleware
@@ -38,9 +36,7 @@ app.use(helmet({
 }));
 
 app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(',')
-    : ['http://localhost:5173', 'http://localhost:3001'],
+  origin: '*' // Open CORS so it strictly never blocks any valid Vercel domains
 }));
 
 app.use(express.json({ limit: '50kb' }));
@@ -73,6 +69,10 @@ app.post('/api/chat', async (req, res) => {
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return res.status(400).json({ error: 'Messages array is required.' });
+    }
+
+    if (!OPENROUTER_API_KEY) {
+      return res.status(500).json({ error: 'Server configuration error: Missing API Key.' });
     }
 
     // Limit conversation length to prevent abuse
