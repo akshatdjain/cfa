@@ -132,15 +132,19 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`
-╔══════════════════════════════════════════════╗
-║   ⚡ CFA RAPID DOUBTS SERVER                ║
-║   Theta X Research                           ║
-╠══════════════════════════════════════════════╣
-║   Port:  ${PORT}                                ║
-║   Mode:  ${process.env.NODE_ENV || 'development'}                        ║
-║   Model: ${process.env.MODEL || 'claude-sonnet-4-20250514'}  ║
-╚══════════════════════════════════════════════╝
-  `);
-});
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`
+  ╔══════════════════════════════════════════════╗
+  ║   ⚡ CFA RAPID DOUBTS SERVER                ║
+  ║   Theta X Research                           ║
+  ╠══════════════════════════════════════════════╣
+  ║   Port:  ${PORT}                                ║
+  ║   Mode:  ${process.env.NODE_ENV || 'development'}                        ║
+  ║   Model: ${process.env.MODEL || 'stepfun/step-3.5-flash:free'}  ║
+  ╚══════════════════════════════════════════════╝
+    `);
+  });
+}
+
+export default app;
