@@ -86,12 +86,13 @@ app.post('/api/chat', async (req, res) => {
     // Get the actual request origin dynamically
     const referer = req.headers.referer || req.headers.origin || 'https://cfa-rapid-doubts.vercel.app';
     
-    // Fallback models in order of preference (best to most reliable)
+    // Fallback models in order of preference (tested and working)
+    // Updated with actual working free models from OpenRouter as of April 2026
     const models = [
-      process.env.MODEL || 'meta-llama/llama-3.3-70b-instruct:free',
-      'google/gemini-flash-1.5:free',
-      'mistralai/mistral-7b-instruct:free',
-      'qwen/qwen-2-7b-instruct:free'
+      process.env.MODEL || 'google/gemma-4-31b-it:free',
+      'nvidia/nemotron-3-super-120b-a12b:free',
+      'google/gemma-4-26b-a4b-it:free',
+      'arcee-ai/trinity-large-preview:free'
     ];
     
     let lastError = null;
