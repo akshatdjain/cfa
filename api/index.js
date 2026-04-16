@@ -62,7 +62,7 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// OpenRouter API proxy
+// OpenRouter API proxy with fallback models
 app.post('/api/chat', async (req, res) => {
   try {
     const { messages, system, topic } = req.body;
@@ -86,43 +86,85 @@ app.post('/api/chat', async (req, res) => {
     // Get the actual request origin dynamically
     const referer = req.headers.referer || req.headers.origin || 'https://cfa-rapid-doubts.vercel.app';
     
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-        'HTTP-Referer': referer,
-        'X-Title': 'CFA Rapid Doubts'
-      },
-      body: JSON.stringify({
-        model: process.env.MODEL || 'meta-llama/llama-3.3-70b-instruct:free',
-        max_tokens: 1024,
-        messages: openRouterMessages,
-      }),
-    });
+    // Fallback models in order of preference (best to most reliable)
+    const models = [
+      process.env.MODEL || 'meta-llama/llama-3.3-70b-instruct:free',
+      'google/gemini-flash-1.5:free',
+      'mistralai/mistral-7b-instruct:free',
+      'qwen/qwen-2-7b-instruct:free'
+    ];
+    
+    let lastError = null;
+    
+    // Try each model until one works
+    for (let i = 0; i < models.length; i++) {
+      const model = models[i];
+      console.log(`[Attempt ${i + 1}/${models.length}] Trying model: ${model}`);
+      
+      try {
+        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+            'HTTP-Referer': referer,
+            'X-Title': 'CFA Rapid Doubts'
+          },
+          body: JSON.stringify({
+            model: model,
+            max_tokens: 1024,
+            messages: openRouterMessages,
+          }),
+        });
 
-    if (!response.ok) {
-      const errBody = await response.text();
-      console.error(`OpenRouter API error [${response.status}]:`, errBody);
-      return res.status(response.status).json({
-        error: `API error: ${response.status}`,
-        detail: response.status === 429 ? 'Rate limited by OpenRouter. Wait a moment.' : 'Something went wrong.',
-      });
+        if (response.ok) {
+          // Success! Return the response
+          const data = await response.json();
+          console.log(`✓ Success with model: ${model}`);
+          
+          const anthropicFormat = {
+            content: [
+              { text: data.choices?.[0]?.message?.content || "No response generated." }
+            ],
+            model_used: model // Let you know which model worked
+          };
+          
+          return res.json(anthropicFormat);
+        }
+        
+        // If rate limited or 404, try next model
+        const errBody = await response.text();
+        lastError = { status: response.status, body: errBody, model: model };
+        console.error(`✗ Model ${model} failed [${response.status}]`);
+        
+        if (response.status === 429 || response.status === 404) {
+          // Rate limited or not found, try next model
+          if (i < models.length - 1) {
+            console.log(`→ Falling back to next model...`);
+            continue;
+          }
+        } else {
+          // Other error (auth, etc), don't retry
+          break;
+        }
+      } catch (fetchErr) {
+        console.error(`✗ Fetch error for ${model}:`, fetchErr.message);
+        lastError = { error: fetchErr.message, model: model };
+        if (i < models.length - 1) continue;
+      }
     }
-
-    const data = await response.json();
     
-    // Transform OpenRouter's response back into the format the frontend expects (Anthropic style)
-    const anthropicFormat = {
-      content: [
-        { text: data.choices?.[0]?.message?.content || "No response generated." }
-      ]
-    };
+    // All models failed
+    console.error('⚠ All models failed. Last error:', lastError);
+    return res.status(lastError?.status || 503).json({
+      error: `All models unavailable`,
+      detail: 'All AI models are currently rate-limited or unavailable. Please try again in a moment.',
+      last_error: lastError
+    });
     
-    res.json(anthropicFormat);
   } catch (err) {
     console.error('Server error:', err.message);
-    res.status(500).json({ error: 'Internal server error.' });
+    return res.status(500).json({ error: 'Internal server error.' });
   }
 });
 
@@ -144,7 +186,7 @@ if (process.env.NODE_ENV !== 'production') {
   ╠══════════════════════════════════════════════╣
   ║   Port:  ${PORT}                                ║
   ║   Mode:  ${process.env.NODE_ENV || 'development'}                        ║
-  ║   Model: ${process.env.MODEL || 'stepfun/step-3.5-flash:free'}  ║
+  ║   Models: Llama 3.3 70B → Gemini → Mistral  ║
   ╚══════════════════════════════════════════════╝
     `);
   });
