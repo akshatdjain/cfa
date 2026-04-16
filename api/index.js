@@ -83,12 +83,15 @@ app.post('/api/chat', async (req, res) => {
       ? [{ role: 'system', content: system }, ...trimmedMessages]
       : trimmedMessages;
 
+    // Get the actual request origin dynamically
+    const referer = req.headers.referer || req.headers.origin || 'https://cfa-rapid-doubts.vercel.app';
+    
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-        'HTTP-Referer': 'https://cfa-blmxdcj5w-akshatdjains-projects.vercel.app',
+        'HTTP-Referer': referer,
         'X-Title': 'CFA Rapid Doubts'
       },
       body: JSON.stringify({
