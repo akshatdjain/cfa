@@ -88,11 +88,11 @@ app.post('/api/chat', async (req, res) => {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-        'HTTP-Referer': 'http://localhost:3001',
+        'HTTP-Referer': 'https://cfa-blmxdcj5w-akshatdjains-projects.vercel.app',
         'X-Title': 'CFA Rapid Doubts'
       },
       body: JSON.stringify({
-        model: process.env.MODEL || 'stepfun/step-3.5-flash:free',
+        model: process.env.MODEL || 'meta-llama/llama-3.3-70b-instruct:free',
         max_tokens: 1024,
         messages: openRouterMessages,
       }),
